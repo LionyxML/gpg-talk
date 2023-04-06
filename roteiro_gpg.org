@@ -1,0 +1,247 @@
+#+TITLE: Roteiro da Talk sobre GPG
+#+AUTHOR: Rahul M. Juliato
+#+EMAIL: rahul.juliato@gmail.com
+#+OPTIONS: toc:nil
+
+* Conceitos
+** Cripto Simétrica
+
+[[./roteiro_gpg.org_20230405_231007.png]]
+[fn:1]
+
+** Cripto Assimétrica
+*** Exemplo 1
+[[./roteiro_gpg.org_20230405_231044.png]]
+
+*** Exemplo 2
+[[./roteiro_gpg.org_20230405_231529.png]]
+
+** Hashs
+*** Conceito
+[[./roteiro_gpg.org_20230405_231922.png]]
+*** Manipulação
+[[https://emn178.github.io/online-tools/md5.html]]
+
+Diferença para encoding.
+** Usos da criptografia
+*** Para confidencialidade
+Não permite computadores intermediários à saber o conteúdo
+da mensagem.
+*** Integridade
+Verifica que tudo o que eu te enviei chegou sem falta.
+*** Autenticidade
+Atesta que minha mensagem fui eu quem mandei.
+*** Não-repúdio
+Você de posse da mensagem pode provar que fui eu quem escrevi.
+
+Não adianta eu mudar de idéia.
+
+** Usos da assinatura (Como funciona)
+[[./roteiro_gpg.org_20230405_232713.png]]
+** Confidencialidade e Integridade
+[[./roteiro_gpg.org_20230405_232903.png]]
+
+** Autenticidade e Não repúdio
+[[./roteiro_gpg.org_20230405_233016.png]]
+** Certificado Digital
+
+- Um orgão certificador assina a chave pública
+- Teia de confiança
+
+- Chave pública do CA
+
+- O órgão certificador "Assina" a sua chave pública
+
+Ou seja, eu entrego para você minha chave pública junto com o
+hash gerado pela chave privada do órgão certificador.
+
+Assim você pode pegar minha chave pública, a informação do órgão
+certificador e comparar as duas.
+
+Tanto quanto você acredite no órgão certificador.
+
+** gpg
+GNU Privacy Guard
+
+PGP
+
+RFC 4880
+
+Troca de chaves:
+- entre pessoas
+- servidores de chaves
+
+* Mão na massa
+** Cripto Simétrica
+*** Criptografar / Descriptografar
+
+#+BEGIN_SRC bash
+ gpg --version
+
+ gpg --symmetric document.txt
+
+ gpg --decrypt document.txt.gpg
+
+#+END_SRC
+
+Também é possível gerar com `gpg -c filename` e descriptografar
+com `gpg filename.gpg`, repare que `gpg -d filename.gpg` joga a saída
+para o stdout.
+
+Também é possível ser muito mais específico:
+
+#+BEGIN_SRC bash
+ gpg --symmetric --cipher-algo AES256 --output encrypted_file filename
+#+END_SRC
+
+Sobre o agent e senha cacheada:
+
+ Pode-se ver o agente gpg rodando com o `ps aux | grep gpg`.
+
+ gpg-connect-agent "getpinentry" /bye
+
+ (Retorna pinetry-curses, pinentry-gtk-2, ...)
+
+ Para reiniciar o agent.
+ gpg-connect-agent reloadagent /bye
+
+
+ Para apagar a senha cacheada no agent.
+ gpg-connect-agent "CLEAR_PASSPHRASE" /bye
+** Critpo Assimétrica
+*** Criar o par de chaves
+#+BEGIN_SRC bash
+  gpg --help | grep genera
+
+  gpg --gen-key
+  gpg --full-generate-key
+#+END_SRC
+
+*** Listar chaves
+#+BEGIN_SRC bash
+  gpg --list-keys
+  gpg --list-secret-keys
+#+END_SRC
+*** Procurar / Baixar / Atualizar chaves de um servidor
+#+BEGIN_SRC bash
+  gpg --search-keys PESQUISA
+  gpg --keyserver keyserver.ubuntu.com --search-keys richard stallman
+  gpg --keyserver pgp.mit.edu --search-keys richard stallman
+#+END_SRC
+
+#+BEGIN_SRC bash
+  gpg --recv-keys ID_CHAVE
+  gpg --recv-keys ID_CHAVE --keyserver keyserver.ubuntu.com
+#+END_SRC
+
+#+BEGIN_SRC bash
+  gpg --refresh-keys
+#+END_SRC
+
+*** Remover chaves
+#+BEGIN_SRC bash
+  gpg --delete-keys
+  gpg --delete-secret-keys
+  gpg --delete-secret-and-public-keys
+#+END_SRC
+*** Enviar chave ao servidor
+#+BEGIN_SRC bash
+  gpg --send-keys --keyserver pgp.mit.edu ID_DA_CHAVE
+#+END_SRC
+
+*** Assinar arquivo
+
+Par assinar:
+
+#+BEGIN_SRC bash
+  gpg --sign ARQUIVO
+
+  gpg --sign --armor ARQUIVO
+  gpg --sign -a ARQUIVO
+#+END_SRC
+
+Para verificar a autencidade:
+#+BEGIN_SRC bash
+  gpg --verify ARQUIVO.gpg
+  gpg --verify ARQUIVO.asc
+#+END_SRC
+
+*** Criptografar arquivo para alguém
+Geramos um arquivo com uma mensagem secrega
+
+#+BEGIN_SRC bash
+echo "Essa é uma mensagem muito secreta!" >> msg.txt
+#+END_SRC
+
+
+Agora de posse da chave PÚBLICA do recipiente, importada em nosso chaveiro,
+rodamos o comando:
+
+#+BEGIN_SRC bash
+  gpg --recipient RECIPIENT_EMAIL --encrypt FILENAME
+#+END_SRC
+
+*** Descriptografar arquivo para você
+Somente a pessoa que detém a chave PRIVADA pode descriptografar um arquivo.
+
+Dessa forma, supondo que alguém criptografou um arquivo com sua chave PUBLICA,
+enviou para você, você pode então descriptografar:
+
+#+BEGIN_SRC bash
+  gpg --decrypt --output FILENAME FILENAME.gpg
+#+END_SRC
+
+*** Gerando o arquivo da sua chave pública para os outros
+
+Tudo o que é seu fica em ~/.gnupg, mas não é uma boa idéia copiar arquivos diretamente dali.
+
+O melhor é usar o comando de exportação para ter certeza de que você está enviando a chave
+pública.
+
+Binário:
+#+BEGIN_SRC bash
+  gpg --output my_public_key_filename.gpg --export USER_EMAIL
+#+END_SRC
+
+Armoured version:
+#+BEGIN_SRC bash
+  gpg --armor --export USER_EMAIL
+#+END_SRC
+
+*** Assinar chaves
+  Um fluxo normal envolveria importar a chave pública que a pessoa te enviou
+  ou do servidor.
+
+  Ter um contato pessoal com a pessoa para ela confirmar a fingerprint da chave
+  pública.
+
+  Conferir com `gpg -k` tanto na sua máquina quanto na da pessoa que é a mesma.
+
+  E agora você pode "assinar" essa chave como confiável.
+
+  #+BEGIN_SRC bash
+    gpg --sign-key OTHER_PERSON_EMAIL
+  #+END_SRC 
+
+  Também é possível inicializar em modo interativo com
+
+  #+BEGIN_SRC bash
+    gpg --edit-key OTHER_PERSON_EMAIL
+  #+END_SRC 
+
+  E navegar por comandos, exemplo:
+  #+BEGIN_SRC bash
+	fpr
+	sign
+	check
+	save
+  #+END_SRC 
+  
+* Note:
+[fn:1] All pictures created by Prof. Paulo Kretcheu
+  
+
+
+
+
+  
